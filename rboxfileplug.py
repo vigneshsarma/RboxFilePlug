@@ -1,0 +1,150 @@
+from django.db import models, connection
+from django.db.models.query import QuerySet, EmptyQuerySet, insert_query, RawQuerySet
+from rboxfilefield import RboxFileField
+#from storage_backends.couchfs import CouchFSStorage
+from storage_backends.s3botofs import S3BotoStorage
+import uuid
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes import generic
+from django.db.models.fields.related import RelatedField, Field, ManyToManyRel
+from south.modelsinspector import add_introspection_rules
+add_introspection_rules([], ["field.models.RboxFilePlug"])
+
+class FileManager(models.Manager):
+    def __init__(self, model=None, core_filters=None, instance=None, symmetrical=None,
+                 join_table=None, source_col_name=None, target_col_name=None, content_type=None,
+                 content_type_field_name=None, object_id_field_name=None):
+
+        super(FileManager, self).__init__()
+        self.core_filters = core_filters or {}
+        self.model = model
+        self.content_type = content_type
+        self.symmetrical = symmetrical
+        self.instance = instance
+        self.join_table = join_table
+        self.join_table = model._meta.db_table
+        self.source_col_name = source_col_name
+        self.target_col_name = target_col_name
+        self.content_type_field_name = content_type_field_name
+        self.object_id_field_name = object_id_field_name
+        self.pk_val = self.instance._get_pk_val()
+
+
+        
+    def get_query_set(self):
+        """Returns a new QuerySet object.  Subclasses can override this method
+        to easily customize the behavior of the Manager.
+        """
+        return QuerySet(RboxFile).filter(rboxfileconnector__content_type=self.content_type, rboxfileconnector__object_id=self.instance.id)
+
+    def all(self):
+        return self.get_query_set()
+
+    def create(self, **kwargs):
+        pointer = kwargs['pointer']
+        if not 'name' in kwargs:
+            kwargs['name'] = pointer.name
+        if not 'size' in kwargs:
+            kwargs['size'] = pointer.size            
+        rbox_file = self.get_query_set().create(**kwargs)
+        rboxfile_connector = RboxFileConnector(rbox_file=rbox_file, content_type=self.content_type, object_id=self.instance.id)
+        rboxfile_connector.save()
+        return rbox_file
+        
+    def add(self, rbox_file):
+        rboxfile_connector = RboxFileConnector(rbox_file=rbox_file, content_type=self.content_type, object_id=self.instance.id)
+        rboxfile_connector.save()
+        return
+
+    def remove(self, rbox_file):
+        """ Remove doesnot deletes the file only deletes the connector model instance
+            rather use delete method for deleting files
+        """
+        rboxfile_connector = RboxFileConnector.objects.get(rbox_file=rbox_file, content_type=self.content_type, object_id=self.instance.id)
+        rboxfile_connector.delete()
+        return
+        
+
+
+        
+
+class FileManagerDescriptor(object):
+    """
+    This class provides the functionality that makes the related-object
+    managers available as attributes on a model class, for fields that have
+    multiple "remote" values and have a GenericRelation defined in their model
+    (rather than having another model pointed *at* them). In the example
+    "article.publications", the publications attribute is a
+    ReverseGenericRelatedObjectsDescriptor instance.
+    """
+    def __init__(self, field):
+        self.field = field
+
+    def __get__(self, instance, instance_type=None):
+        if instance is None:
+            return self
+
+        # This import is done here to avoid circular import importing this module
+        from django.contrib.contenttypes.models import ContentType
+
+        # Dynamically create a class that subclasses the related model's
+        # default manager.
+        rel_model = self.field.rel.to
+        RelatedManager = FileManager
+
+        qn = connection.ops.quote_name
+
+        manager = RelatedManager(
+            model = rel_model,
+            instance = instance,
+            symmetrical = (self.field.rel.symmetrical and instance.__class__ == rel_model),
+            join_table = qn(self.field.m2m_db_table()),
+            source_col_name = qn(self.field.m2m_column_name()),
+            target_col_name = qn(self.field.m2m_reverse_name()),
+            content_type = ContentType.objects.db_manager(instance._state.db).get_for_model(instance),
+            content_type_field_name = self.field.content_type_field_name,
+            object_id_field_name = self.field.object_id_field_name
+        )
+
+        return manager
+
+    def __set__(self, instance, value):
+        if instance is None:
+            raise AttributeError("Manager must be accessed via instance")
+
+        manager = self.__get__(instance)
+        manager.clear()
+        for obj in value:
+            manager.add(obj)
+
+class CustomFileRelation(generic.GenericRelation):    
+    def contribute_to_class(self, cls, name):
+        super(CustomFileRelation, self).contribute_to_class(cls, name)
+
+        # Save a reference to which model this class is on for future use
+        self.model = cls
+
+        # Add the descriptor for the m2m relation
+        setattr(cls, self.name, FileManagerDescriptor(self))
+
+def get_unique_key():
+    return uuid.uuid4().hex
+
+        
+class RboxFile(models.Model):
+    unique_key = models.CharField('Unique Key', max_length="100", default=get_unique_key, unique=True, db_index=True)
+    name = models.CharField('File Name', max_length="100")
+    label = models.CharField('File Type', max_length="50", blank=True, null=True)
+    size = models.PositiveIntegerField('File Size')
+    pointer = RboxFileField('File Pointer', backup_storage=S3BotoStorage())
+
+class RboxFileConnector(models.Model):
+    rbox_file = models.ForeignKey(RboxFile)
+    content_type = models.ForeignKey(ContentType)
+    object_id = models.PositiveIntegerField(db_index=True)
+    content_object = generic.GenericForeignKey('content_type', 'object_id')
+    
+
+class RboxFilePlug(CustomFileRelation):
+    def __init__(self,*args,**kwargs):
+        super(RboxFilePlug,self).__init__(RboxFileConnector)
