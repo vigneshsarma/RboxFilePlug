@@ -172,7 +172,7 @@ class RboxFile(models.Model):
 class RboxFileConnector(models.Model):
     rbox_file = models.ForeignKey(RboxFile)
     content_type = models.ForeignKey(ContentType)
-    file_field_identifier = models.CharField(max_length=100, default="attachments")
+    file_field_identifier = models.CharField(max_length=100, default="attachments", db_index=True)
     object_id = models.PositiveIntegerField(db_index=True)
     content_object = generic.GenericForeignKey('content_type', 'object_id')
     
