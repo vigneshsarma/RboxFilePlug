@@ -67,7 +67,7 @@ class FileManager(models.Manager):
         rboxfile_connector = RboxFileConnector(rbox_file=rbox_file, content_type=self.content_type,
                                                object_id=self.instance.id, file_field_identifier=self.file_field_identifier)
         rboxfile_connector.save()
-        return
+        return rbox_file
 
     def remove(self, rbox_file):
         """ Remove doesnot deletes the file only deletes the connector model instance
