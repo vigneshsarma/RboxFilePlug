@@ -14,7 +14,7 @@ add_introspection_rules([], ["field.models.RboxSingleFilePlug"])
 class FileManager(models.Manager):
     def __init__(self, model=None, core_filters=None, instance=None, symmetrical=None,
                  join_table=None, source_col_name=None, target_col_name=None, content_type=None,
-                 content_type_field_name=None, object_id_field_name=None, model_field_name=None, max_count=None):
+                 content_type_field_name=None, object_id_field_name=None, file_field_identifier=None, max_count=None):
 
         super(FileManager, self).__init__()
         self.core_filters = core_filters or {}
@@ -29,7 +29,7 @@ class FileManager(models.Manager):
         self.content_type_field_name = content_type_field_name
         self.object_id_field_name = object_id_field_name
         self.pk_val = self.instance._get_pk_val()
-        self.model_field_name = model_field_name
+        self.file_field_identifier = file_field_identifier
         self.max_count = max_count
 
 
@@ -41,7 +41,7 @@ class FileManager(models.Manager):
         """
         return QuerySet(RboxFile).filter(rboxfileconnector__content_type=self.content_type,
                                          rboxfileconnector__object_id=self.instance.id,
-                                         rboxfileconnector__model_field_name=self.model_field_name)
+                                         rboxfileconnector__file_field_identifier=self.file_field_identifier)
 
     def all(self):
         return self.get_query_set()
@@ -56,7 +56,7 @@ class FileManager(models.Manager):
             kwargs['size'] = pointer.size
         rbox_file = self.get_query_set().create(**kwargs)
         rboxfile_connector = RboxFileConnector(rbox_file=rbox_file, content_type=self.content_type,
-                                               object_id=self.instance.id, model_field_name=self.model_field_name)
+                                               object_id=self.instance.id, file_field_identifier=self.file_field_identifier)
         rboxfile_connector.save()
         return rbox_file
         
@@ -65,7 +65,7 @@ class FileManager(models.Manager):
             raise ValueError("Maximum number of objects already created")
 
         rboxfile_connector = RboxFileConnector(rbox_file=rbox_file, content_type=self.content_type,
-                                               object_id=self.instance.id, model_field_name=self.model_field_name)
+                                               object_id=self.instance.id, file_field_identifier=self.file_field_identifier)
         rboxfile_connector.save()
         return
 
@@ -74,7 +74,7 @@ class FileManager(models.Manager):
             rather use delete method for deleting files
         """
         rboxfile_connector = RboxFileConnector.objects.get(rbox_file=rbox_file, content_type=self.content_type,
-                                                           object_id=self.instance.id, model_field_name=self.model_field_name)
+                                                           object_id=self.instance.id, file_field_identifier=self.file_field_identifier)
         rboxfile_connector.delete()
         return
 
@@ -103,9 +103,9 @@ class FileManagerDescriptor(object):
     "article.publications", the publications attribute is a
     ReverseGenericRelatedObjectsDescriptor instance.
     """
-    def __init__(self, field, field_name, max_count):
+    def __init__(self, field, file_field_identifier, max_count):
         self.field = field
-        self.field_name = field_name
+        self.file_field_identifier = file_field_identifier
         self.max_count = max_count
 
     def __get__(self, instance, instance_type=None):
@@ -132,9 +132,8 @@ class FileManagerDescriptor(object):
             content_type = ContentType.objects.db_manager(instance._state.db).get_for_model(instance),
             content_type_field_name = self.field.content_type_field_name,
             object_id_field_name = self.field.object_id_field_name,
-            model_field_name = self.field_name,
+            file_field_identifier = self.file_field_identifier,
             max_count = self.max_count
-
         )
 
         return manager
@@ -154,15 +153,7 @@ class CustomFileRelation(generic.GenericRelation):
 
         # Save a reference to which model this class is on for future use
         self.model = cls
-        
-
-        # Add the descriptor for the m2m relation
-        if self.model_field_name:
-            field_name = self.model_field_name
-        else:
-            field_name = self.name
-        
-        setattr(cls, self.name, FileManagerDescriptor(self, field_name, self.max_count))
+        setattr(cls, self.name, FileManagerDescriptor(self, self.file_field_identifier, self.max_count))
 
 def get_unique_key():
     return uuid.uuid4().hex
@@ -178,19 +169,19 @@ class RboxFile(models.Model):
 class RboxFileConnector(models.Model):
     rbox_file = models.ForeignKey(RboxFile)
     content_type = models.ForeignKey(ContentType)
-    model_field_name = models.CharField(max_length=100, default="attachments")
+    file_field_identifier = models.CharField(max_length=100, default="attachments")
     object_id = models.PositiveIntegerField(db_index=True)
     content_object = generic.GenericForeignKey('content_type', 'object_id')
     
 
 class RboxFilePlug(CustomFileRelation):
-    def __init__(self,related_name=None,model_field_name=None,max_count=None,*args,**kwargs):
+    def __init__(self,related_name=None, file_field_identifier=None, max_count=None, *args, **kwargs):
         if not related_name:
             related_name = uuid.uuid4().hex
         kwargs['related_name'] = related_name
         kwargs['to'] = RboxFileConnector
         super(RboxFilePlug,self).__init__(**kwargs)
-        self.model_field_name = model_field_name
+        self.file_field_identifier = file_field_identifier or self.name
         self.max_count = max_count
 
 class RboxSingleFilePlug(RboxFilePlug):
