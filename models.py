@@ -80,7 +80,10 @@ class FileManager(models.Manager):
 
     def get(self, **kwargs):
         if self.max_count == 1:
-            return self.all()[0]
+            try:
+                return self.all()[0]
+            except IndexError:
+                return None
         else:
             return super(FileManager,self).get(**kwargs)
 
