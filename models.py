@@ -157,6 +157,7 @@ class CustomFileRelation(generic.GenericRelation):
 
         # Save a reference to which model this class is on for future use
         self.model = cls
+        if not self.file_field_identifier:                                                                                                              self.file_field_identifier = self.name
         setattr(cls, self.name, FileManagerDescriptor(self, self.file_field_identifier, self.max_count))
 
 def get_unique_key():
@@ -184,7 +185,7 @@ class RboxFilePlug(CustomFileRelation):
         kwargs['related_name'] = related_name
         kwargs['to'] = RboxFileConnector
         super(RboxFilePlug,self).__init__(**kwargs)
-        self.file_field_identifier = file_field_identifier or self.name
+        self.file_field_identifier = file_field_identifier
         self.max_count = max_count
 
 class RboxSingleFilePlug(RboxFilePlug):
