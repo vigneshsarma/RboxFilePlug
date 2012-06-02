@@ -1,15 +1,16 @@
 from django.db import models, connection
 from django.db.models.query import QuerySet, EmptyQuerySet, insert_query, RawQuerySet
-from customfilefield import RboxFileField
-#from storage_backends.couchfs import CouchFSStorage
-from customfilefield import S3BotoStorage, CouchFSStorage
+from field import RboxFileField
+from field import S3BotoStorage
 import uuid
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from django.db.models.fields.related import RelatedField, Field, ManyToManyRel
+from django.conf import settings
+
 from south.modelsinspector import add_introspection_rules
-add_introspection_rules([], ["field.models.RboxFilePlug"])
-add_introspection_rules([], ["field.models.RboxSingleFilePlug"])
+add_introspection_rules([], ["recruiterbox.filemanager.models.RboxFilePlug"])
+add_introspection_rules([], ["recruiterbox.filemanager.models.RboxSingleFilePlug"])
 
 class FileManager(models.Manager):
     def __init__(self, model=None, core_filters=None, instance=None, symmetrical=None,
@@ -49,11 +50,11 @@ class FileManager(models.Manager):
     def create(self, **kwargs):
         if self.max_count and (self.all().count() >= self.max_count):
             raise ValueError("Maximum number of objects already created")
-        pointer = kwargs['pointer']
-        if not 'name' in kwargs:
-            kwargs['name'] = pointer.name
-        if not 'size' in kwargs:
-            kwargs['size'] = pointer.size
+        filepointer = kwargs['filepointer']
+        if not 'filename' in kwargs:
+            kwargs['filename'] = filepointer.name
+        if not 'filesize' in kwargs:
+            kwargs['filesize'] = filepointer.size
         rbox_file = self.get_query_set().create(**kwargs)
         rboxfile_connector = RboxFileConnector(rbox_file=rbox_file, content_type=self.content_type,
                                                object_id=self.instance.id, file_field_identifier=self.file_field_identifier)
@@ -160,14 +161,13 @@ class CustomFileRelation(generic.GenericRelation):
 
 def get_unique_key():
     return uuid.uuid4().hex
-
         
 class RboxFile(models.Model):
-    unique_key = models.CharField('Unique Key', max_length="100", default=get_unique_key, unique=True, db_index=True)
-    name = models.CharField('File Name', max_length="100")
-    label = models.CharField('File Type', max_length="50", blank=True, null=True)
-    size = models.PositiveIntegerField('File Size')
-    pointer = RboxFileField('File Pointer', primary_storage=CouchFSStorage(), backup_storage=S3BotoStorage(), upload_to="plaban")
+    unique_key = models.CharField('Unique Key', max_length=100, default=get_unique_key, unique=True, db_index=True)
+    filename = models.CharField('File Name', max_length=100)
+    filelabel = models.CharField('File Type', max_length=50, blank=True, null=True)
+    filesize = models.PositiveIntegerField('File Size')
+    filepointer = RboxFileField('File Pointer', max_length=200, upload_to='filemanager.rboxfile') #, backup_storage=S3BotoStorage())
 
 class RboxFileConnector(models.Model):
     rbox_file = models.ForeignKey(RboxFile)
@@ -191,3 +191,10 @@ class RboxSingleFilePlug(RboxFilePlug):
     def __init__(self, *args, **kwargs):
         kwargs['max_count'] = 1
         super(RboxSingleFilePlug,self).__init__(*args, **kwargs)
+
+
+
+
+
+
+
