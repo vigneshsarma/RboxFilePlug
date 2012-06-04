@@ -44,7 +44,10 @@ class FileManager(models.Manager):
                                          rboxfileconnector__object_id=self.instance.id,
                                          rboxfileconnector__file_field_identifier=self.file_field_identifier)
 
-    def all(self):
+    def all(self):                
+        if hasattr(self, 'ondelete'):            
+            if self.ondelete:
+                return None
         return self.get_query_set()
 
     def create(self, **kwargs):
@@ -188,6 +191,14 @@ class RboxFilePlug(CustomFileRelation):
         super(RboxFilePlug,self).__init__(**kwargs)
         self.file_field_identifier = file_field_identifier
         self.max_count = max_count
+
+
+    def value_from_object(self, obj):
+        manager_obj = getattr(obj, self.attname)
+        manager_obj.ondelete = True
+        return manager_obj
+
+
 
 class RboxSingleFilePlug(RboxFilePlug):
     def __init__(self, *args, **kwargs):
