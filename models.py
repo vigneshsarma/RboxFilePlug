@@ -47,7 +47,7 @@ class FileManager(models.Manager):
     def all(self):                
         if hasattr(self, 'ondelete'):            
             if self.ondelete:
-                return None
+                return self.none()
         return self.get_query_set()
 
     def create(self, **kwargs):
@@ -194,9 +194,15 @@ class RboxFilePlug(CustomFileRelation):
 
 
     def value_from_object(self, obj):
-        manager_obj = getattr(obj, self.attname)
-        manager_obj.ondelete = True
-        return manager_obj
+        import django
+        if django.__dict__['VERSION'] == (1, 2, 3, 'final', 0):
+            manager_obj = getattr(obj, self.attname)
+            manager_obj.ondelete = True
+            return manager_obj
+        else:
+            return super(RboxFilePlug,self).value_from_object(obj)
+            
+
 
 
 
