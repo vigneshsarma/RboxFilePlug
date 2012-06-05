@@ -115,7 +115,7 @@ class FileManagerDescriptor(object):
         self.file_field_identifier = file_field_identifier
         self.max_count = max_count
 
-    def __get_filemanager(self):
+    def get_filemanager(self):
         return FileManager
 
     def __get__(self, instance, instance_type=None):
@@ -128,7 +128,7 @@ class FileManagerDescriptor(object):
         # Dynamically create a class that subclasses the related model's
         # default manager.
         rel_model = self.field.rel.to
-        RelatedManager = self.__get_filemanager()
+        RelatedManager = self.get_filemanager()
 
         qn = connection.ops.quote_name
 
@@ -158,7 +158,7 @@ class FileManagerDescriptor(object):
             manager.add(obj)
 
 class CustomFileRelation(generic.GenericRelation):    
-    def __get_filemanager_descriptor(self):
+    def get_filemanager_descriptor(self):
         return FileManagerDescriptor
 
     def contribute_to_class(self, cls, name):
@@ -169,7 +169,7 @@ class CustomFileRelation(generic.GenericRelation):
         if not self.file_field_identifier:
             self.file_field_identifier = self.name
         
-        RelatedManagerDescriptor = self.__get_filemanager_descriptor()
+        RelatedManagerDescriptor = self.get_filemanager_descriptor()
         setattr(cls, self.name, RelatedManagerDescriptor(self, self.file_field_identifier, self.max_count))
 
 def get_unique_key():
