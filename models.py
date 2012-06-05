@@ -115,6 +115,9 @@ class FileManagerDescriptor(object):
         self.file_field_identifier = file_field_identifier
         self.max_count = max_count
 
+    def __get_filemanager(self):
+        return FileManager
+
     def __get__(self, instance, instance_type=None):
         if instance is None:
             return self
@@ -125,7 +128,7 @@ class FileManagerDescriptor(object):
         # Dynamically create a class that subclasses the related model's
         # default manager.
         rel_model = self.field.rel.to
-        RelatedManager = FileManager
+        RelatedManager = self.__get_filemanager()
 
         qn = connection.ops.quote_name
 
@@ -155,6 +158,9 @@ class FileManagerDescriptor(object):
             manager.add(obj)
 
 class CustomFileRelation(generic.GenericRelation):    
+    def __get_filemanager_descriptor(self):
+        return FileManagerDescriptor
+
     def contribute_to_class(self, cls, name):
         super(CustomFileRelation, self).contribute_to_class(cls, name)
 
@@ -162,7 +168,7 @@ class CustomFileRelation(generic.GenericRelation):
         self.model = cls
         if not self.file_field_identifier:
             self.file_field_identifier = self.name
-        setattr(cls, self.name, FileManagerDescriptor(self, self.file_field_identifier, self.max_count))
+        setattr(cls, self.name, self.__get_filemanager_descriptor()(self, self.file_field_identifier, self.max_count))
 
 def get_unique_key():
     return uuid.uuid4().hex
@@ -180,18 +186,17 @@ class RboxFileConnector(models.Model):
     file_field_identifier = models.CharField(max_length=100, default="attachments", db_index=True)
     object_id = models.PositiveIntegerField(db_index=True)
     content_object = generic.GenericForeignKey('content_type', 'object_id')
-    
+   
 
-class RboxFilePlug(CustomFileRelation):
+class GenericFilePlug:
     def __init__(self,related_name=None, file_field_identifier=None, max_count=None, *args, **kwargs):
         if not related_name:
             related_name = uuid.uuid4().hex
         kwargs['related_name'] = related_name
         kwargs['to'] = RboxFileConnector
-        super(RboxFilePlug,self).__init__(**kwargs)
+        super(GenericFilePlug,self).__init__(**kwargs)
         self.file_field_identifier = file_field_identifier
         self.max_count = max_count
-
 
     def value_from_object(self, obj):
         import django
@@ -200,15 +205,16 @@ class RboxFilePlug(CustomFileRelation):
             manager_obj.ondelete = True
             return manager_obj
         else:
-            return super(RboxFilePlug,self).value_from_object(obj)
-            
+            return super(GenericFilePlug,self).value_from_object(obj)
 
-
-
-
-class RboxSingleFilePlug(RboxFilePlug):
+class GenericSingleFilePlug:
     def __init__(self, *args, **kwargs):
         kwargs['max_count'] = 1
-        super(RboxSingleFilePlug,self).__init__(*args, **kwargs)
+        super(GenericSingleFilePlug,self).__init__(*args, **kwargs)
 
 
+class RboxFilePlug(CustomFileRelation, GenericFilePlug):
+    pass
+
+class RboxSingleFilePlug(RboxFilePlug, GenericSingleFilePlug):
+    pass
