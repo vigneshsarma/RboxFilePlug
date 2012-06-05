@@ -188,7 +188,7 @@ class RboxFileConnector(models.Model):
     content_object = generic.GenericForeignKey('content_type', 'object_id')
    
 
-class GenericFilePlug:
+class GenericFilePlug(object):
     def __init__(self,related_name=None, file_field_identifier=None, max_count=None, *args, **kwargs):
         if not related_name:
             related_name = uuid.uuid4().hex
@@ -207,14 +207,14 @@ class GenericFilePlug:
         else:
             return super(GenericFilePlug,self).value_from_object(obj)
 
-class GenericSingleFilePlug:
+class GenericSingleFilePlug(object):
     def __init__(self, *args, **kwargs):
         kwargs['max_count'] = 1
         super(GenericSingleFilePlug,self).__init__(*args, **kwargs)
 
 
-class RboxFilePlug(CustomFileRelation, GenericFilePlug):
+class RboxFilePlug(GenericFilePlug, CustomFileRelation):
     pass
 
-class RboxSingleFilePlug(RboxFilePlug, GenericSingleFilePlug):
+class RboxSingleFilePlug(GenericSingleFilePlug, RboxFilePlug):
     pass
