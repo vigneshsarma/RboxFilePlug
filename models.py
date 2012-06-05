@@ -9,8 +9,8 @@ from django.db.models.fields.related import RelatedField, Field, ManyToManyRel
 from django.conf import settings
 
 from south.modelsinspector import add_introspection_rules
-add_introspection_rules([], ["recruiterbox.filemanager.models.RboxFilePlug"])
-add_introspection_rules([], ["recruiterbox.filemanager.models.RboxSingleFilePlug"])
+add_introspection_rules([], ["filemanager.models.RboxFilePlug"])
+add_introspection_rules([], ["filemanager.models.RboxSingleFilePlug"])
 
 class FileManager(models.Manager):
     def __init__(self, model=None, core_filters=None, instance=None, symmetrical=None,
