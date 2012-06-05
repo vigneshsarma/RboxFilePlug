@@ -168,7 +168,9 @@ class CustomFileRelation(generic.GenericRelation):
         self.model = cls
         if not self.file_field_identifier:
             self.file_field_identifier = self.name
-        setattr(cls, self.name, self.__get_filemanager_descriptor()(self, self.file_field_identifier, self.max_count))
+        
+        RelatedManagerDescriptor = self.__get_filemanager_descriptor()
+        setattr(cls, self.name, RelatedManagerDescriptor(self, self.file_field_identifier, self.max_count))
 
 def get_unique_key():
     return uuid.uuid4().hex
