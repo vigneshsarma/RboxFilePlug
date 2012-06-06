@@ -2,6 +2,7 @@ from django.db import models, connection
 from django.db.models.query import QuerySet, EmptyQuerySet, insert_query, RawQuerySet
 from field import RboxFileField
 from field import S3BotoStorage
+from django.contrib.auth.models import User
 import uuid
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
@@ -32,9 +33,6 @@ class FileManager(models.Manager):
         self.pk_val = self.instance._get_pk_val()
         self.file_field_identifier = file_field_identifier
         self.max_count = max_count
-
-
-
         
     def get_query_set(self):
         """Returns a new QuerySet object.  Subclasses can override this method
@@ -68,18 +66,20 @@ class FileManager(models.Manager):
         if self.max_count and (self.all().count() >= self.max_count):
             raise ValueError("Maximum number of objects already created")
 
-        rboxfile_connector = RboxFileConnector(rbox_file=rbox_file, content_type=self.content_type,
+        rboxfile_connector, created = RboxFileConnector.get_or_create(rbox_file=rbox_file, content_type=self.content_type,
                                                object_id=self.instance.id, file_field_identifier=self.file_field_identifier)
-        rboxfile_connector.save()
         return rbox_file
 
     def remove(self, rbox_file):
         """ Remove doesnot deletes the file only deletes the connector model instance
             rather use delete method for deleting files
         """
-        rboxfile_connector = RboxFileConnector.objects.get(rbox_file=rbox_file, content_type=self.content_type,
+        try:
+            rboxfile_connector = RboxFileConnector.objects.get(rbox_file=rbox_file, content_type=self.content_type,
                                                            object_id=self.instance.id, file_field_identifier=self.file_field_identifier)
-        rboxfile_connector.delete()
+            rboxfile_connector.delete()
+        except RboxFileConnector.DoesNotExist:
+            pass
         return
 
     def get(self, **kwargs):
@@ -181,6 +181,7 @@ class RboxFile(models.Model):
     filelabel = models.CharField('File Type', max_length=50, blank=True, null=True)
     filesize = models.PositiveIntegerField('File Size')
     filepointer = RboxFileField('File Pointer', max_length=200, upload_to='filemanager.rboxfile') #, backup_storage=S3BotoStorage())
+    user = models.ForeignKey(User,null=True)
 
 class RboxFileConnector(models.Model):
     rbox_file = models.ForeignKey(RboxFile)
