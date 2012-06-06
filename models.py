@@ -97,7 +97,7 @@ class FileManager(models.Manager):
             try:
                 return super(FileManager,self).get(**kwargs)
             except RboxFile.DoesNotExist:
-                raise FileDoesNotExist
+                raise FileManager.FileDoesNotExist
 
     def delete(self, **kwargs):
         if self.max_count == 1:
