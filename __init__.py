@@ -11,3 +11,5 @@ def create_file(**kwargs):
     rbox_file = RboxFile.objects.create(**kwargs)
     return rbox_file
 
+def objects_manager():
+    return RboxFile.objects
