@@ -1,7 +1,7 @@
 from django.db import models, connection
 from django.db.models.query import QuerySet, EmptyQuerySet, insert_query, RawQuerySet
-from field import RboxFileField
-from field import S3BotoStorage
+from custom_filefield import RboxFileField
+from custom_filefield import S3BotoStorage
 from django.contrib.auth.models import User
 import uuid
 import datetime
@@ -11,8 +11,6 @@ from django.db.models.fields.related import RelatedField, Field, ManyToManyRel
 from django.conf import settings
 
 from south.modelsinspector import add_introspection_rules
-add_introspection_rules([], ["filemanager.models.RboxFilePlug"])
-add_introspection_rules([], ["filemanager.models.RboxSingleFilePlug"])
 
 class FileManager(models.Manager):
     def __init__(self, model=None, core_filters=None, instance=None, symmetrical=None,
@@ -227,3 +225,10 @@ class RboxFilePlug(GenericFilePlug, CustomFileRelation):
 
 class RboxSingleFilePlug(GenericSingleFilePlug, RboxFilePlug):
     pass
+
+rboxfileplug_introspection_rules = [((RboxFilePlug,),[],{"file_field_identifier": ["file_field_identifier",{}],},)]
+add_introspection_rules(rboxfileplug_introspection_rules, ["filemanager.models.RboxFilePlug"])
+
+rboxsinglfileplug_introspection_rules = [((RboxSingleFilePlug,),[],{"file_field_identifier": ["file_field_identifier",{}],},)]
+add_introspection_rules(rboxsinglfileplug_introspection_rules, ["filemanager.models.RboxSingleFilePlug"])
+
