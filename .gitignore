@@ -1,4 +1,6 @@
 migrations*
 *.pyc
+*.*~
+#*#
 field.py
 signal_handling.py
