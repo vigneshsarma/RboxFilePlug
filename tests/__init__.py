@@ -4,7 +4,7 @@ when you run "manage.py test".
 
 Replace this with more appropriate tests for your application.
 """
-from django.utils import unittest
+import unittest
 import os
 from filemanager.field.models import *
 from django.core.files import File
